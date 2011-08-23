@@ -1,0 +1,5 @@
+Make more general n-body MC steps.
+Improve the exchange atom method.
+Make the optimization and hessian code general for arbitrary two body potentials.
+
+Make ptmc more modular
