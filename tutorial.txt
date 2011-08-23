@@ -1,0 +1,474 @@
+Installation
+
+
+
+
+
+In this tutorial a the two lowest energy structures of a binary Lennard
+Jones cluster will be obtained using the lowest energy structures of
+a pure Lennard-Jones cluster as ansatz to do a local optimization
+using lj_grad . 
+Then the geometric mean vibrational frequencies will be calculated
+and using lj_hess an finally the global minimum found using lj_grad
+will be used to initiallize a Parallel Tempering Monte Carlo 
+simulation using ptmc. Both the local optimizations and the eigenvalues
+will be calculated using the tool provided by the GNU Scientific
+Library (GSL) [1]. It is assumed that the reader has a working 
+knowledge of the C programming Language.
+
+/***********************************************************************
+1. Setting the parameter files
+/***********************************************************************
+
+In this tutorial we will simulate the melting of the cluster KrXe12
+by approximating the potential energy between the nuclei has a 
+Lennard-Jones potential whose precise form is:
+V(r_1, r_2,...,r_n)=\sum_i<j \epsilon_{i,j} f(|r_i-r_j|/sigma_{i,j})
+The parameters for the interactions between the atoms are [1]:
+
+\sigma_{XeXe} = 1.206
+\sigma_{KrXe} = 1.16397
+\sigma_{KrKr} = 1.12403
+\epsilon_{XeXe} = 1.852
+\epsilon_{XeKr} = 1.59914
+\epsilon_{KrKr} = 1.373534
+
+This information has to be codified in the file lj_params.c in which
+two function that return epsilon and sigma squared should be given
+for our cluster we will assume that the "first" atom in Kr and the other
+12 atoms Xe and thus a possible implementation of the desired functions
+is given by:
+
+#define sigmaBB2 1.45444
+#define sigmaAB2 1.35483
+#define sigmaAA2 1.26344
+#define epsilonBB 1.852
+#define epsilonAB 1.59914
+#define epsilonAA 1.373534
+
+#define m 1
+
+inline double lj_sigma2(int i,int j){
+  if(i<m&&j<m){
+    return sigmaAA2;
+  }
+  else if(i>=m&&j>=m){
+    return sigmaBB2;
+  }
+  else{
+    return sigmaAB2;
+  }
+}
+
+inline double lj_epsilon(int i,int j){
+  if(i<m&&j<m){
+    return epsilonAA;
+  }
+  else if(i>=m&&j>=m){
+    return epsilonBB;
+  }
+  else{
+    return epsilonAB;
+  }
+}
+
+This function will properly define the parameter for the cluster that 
+we shall study.
+
+/***********************************************************************
+2. Obtaining the initial geometry
+/***********************************************************************
+
+As it was mentioned in the introduction the initial geometry that we 
+will use as ansatz is the pure Lennard-Jones Global Minimum for 13
+atoms, this can be obtained from the Cambridge Cluster Database [2]
+by simply typing in a terminal:
+
+wget http://physchem.ox.ac.uk/~doye/jon/structures/LJ/points/13
+
+and the plain text file 13 will be downloaded.
+
+/***********************************************************************
+3. Doing local optimization using lj_grad
+/***********************************************************************
+
+To compile compile and example file that invokes lj_grad simply type in 
+the terminal where the source file are:
+
+make example_grad.out
+
+and an executable called example_grad.out . This executable will take an
+initial geometry of n atoms and will use GSL and lj_grad to locally 
+optimize it over the Lennard-Jones potential energy surface.
+The program is should ve invoked by providing first the number of atoms
+then the name of the file with the initial geometry  and the name 
+that should be given to the file that will contain the optimized 
+geometry. Thus, we can invoke it as follows:
+
+./example_grad.out 13 13 Kr12XeA.xyz
+
+where the first '13' indicated that we have 13 atoms and the second '13'
+is the name of the initial file (the one that was obtained from CCD)
+and Kr12Xe12.xyz is the name of the final geometry. The program will 
+return something like:
+
+./example_grad.out 13 13 KrXe12A.xyz
+
+ 
+Initial Energy in file 13 was E=248.531497 and the value of the norm of the gradient was |df|=1593.541896
+
+ 
+Final Energy in file KrXe12A.xyz was E=-80.211512 and the value of the norm of the gradient was |df|=0.000055
+
+
+Although this is low energy structure it not the global minimum, to 
+obtain it we will edit the '13' which originally looks like:
+
+         1.0132226417        0.3329955686        0.1812866397
+         0.7255989775       -0.7660449415        0.2388625373
+         0.7293356067       -0.2309436666       -0.7649239428
+         0.3513618941        0.8291166557       -0.5995702064
+         0.3453146118       -0.0366957540        1.0245903005
+         0.1140240770        0.9491685999        0.5064104273
+        -1.0132240213       -0.3329960305       -0.1812867552
+        -0.1140234764       -0.9491689127       -0.5064103454
+        -0.3513615244       -0.8291170821        0.5995701458
+        -0.3453152548        0.0366956843       -1.0245902691
+        -0.7255983925        0.7660457628       -0.2388624662
+        -0.7293359733        0.2309438428        0.7649237858
+         0.0000008339        0.0000002733        0.0000001488
+
+What we will do is simply move the last line to the first position
+in the list, which basically implies that given that Kr is the 'first'
+this time in the local optimization it will start in the center.
+The modified file should look something like:
+
+         0.0000008339        0.0000002733        0.0000001488
+         1.0132226417        0.3329955686        0.1812866397
+         0.7255989775       -0.7660449415        0.2388625373
+         0.7293356067       -0.2309436666       -0.7649239428
+         0.3513618941        0.8291166557       -0.5995702064
+         0.3453146118       -0.0366957540        1.0245903005
+         0.1140240770        0.9491685999        0.5064104273
+        -1.0132240213       -0.3329960305       -0.1812867552
+        -0.1140234764       -0.9491689127       -0.5064103454
+        -0.3513615244       -0.8291170821        0.5995701458
+        -0.3453152548        0.0366956843       -1.0245902691
+        -0.7255983925        0.7660457628       -0.2388624662
+        -0.7293359733        0.2309438428        0.7649237858
+        
+ Again using example_grad:
+ 
+ ./example_grad.out 13 13 KrXe12B.xyz
+
+Notice that now the optimized geometry will be saved in the file 
+KrXe12B.xyz . The program will return:
+
+
+ 
+Initial Energy in file 13 was E=180.775907 and the value of the norm of the gradient was |df|=1305.111638
+
+ 
+Final Energy in file KrXe12B.xyz was E=-81.089476 and the value of the norm of the gradient was |df|=0.000032
+
+As anticipated this is indeed a lower energy structure.
+With this we have what so far is the best structure reported for
+KrXe12 [2,4]. [Added4Aug11] The two geometries obtained are plotted in 
+figures KrXe12A.eps and KrXe12B.eps using Molden.
+
+
+
+/***********************************************************************
+Obtaining the Geometric Mean vibrational frequency
+/***********************************************************************
+In this section we will obtain the mean vibrational frequency of the two
+locally optimized structures found in the last section.
+This frequencies are, expect for factors proportional to the masses
+of the atoms, given by the square root of the geometric mean of the
+eigenvalues of the Hessian matrix. 
+To do so the library lj_hess will be invoked from the file example_hess
+together with the Eigenvalue routines of GSL.
+To compile type:
+
+make example_hess.out
+
+In this case to run the file it will require the number of atoms and the
+name of the file that contains the geometry and it will return the 
+all the eigenvalues of the Hessian matrix and the Geometric Mean
+of such eigenvalues excluding the ones that are smaller than 0.0001.
+For the structures already found the output will look like:
+
+ ./example_hess.out 13 KrXe12A.xyz 
+-3.08469e-14
+4.37962e-14
+-9.50689e-14
+-2.48399e-06
+3.64526e-06
+3.66787e-06
+48.1857
+48.1857
+51.9142
+53.8878
+53.8878
+91.1957
+91.1957
+92.4018
+92.4018
+106.985
+107.836
+107.836
+114.256
+115.028
+115.028
+119.997
+119.997
+168.1
+168.1
+186.683
+186.683
+189.87
+189.87
+191.756
+237.343
+245.653
+245.653
+250.34
+250.34
+286.205
+762.127
+762.127
+768.469
+
+ GM=149.056030 
+
+
+and
+
+1.29857e-14
+-4.10678e-14
+1.12186e-13
+-1.73358e-08
+-1.74339e-08
+-8.49356e-07
+73.994
+73.994
+73.994
+73.994
+73.994
+108.789
+108.789
+108.789
+108.789
+108.789
+135.945
+135.945
+135.945
+135.945
+144.962
+144.962
+144.962
+171.136
+171.136
+171.136
+262.548
+262.548
+262.548
+262.548
+285.566
+285.566
+285.566
+285.566
+285.566
+295.047
+520.572
+520.572
+520.572
+
+ GM=172.581974 
+
+
+GM is used for geometric mean. Thus the geometric mean vibrational
+frequencies for the two structures are:
+
+KrXe12A:	12.208
+KrXe12B: 	13.136
+
+Notice that as expected there 6 values that are nearly zero and the 
+other 3N-6 are positive as it should be for local minimum.
+[Added4Aug11] These mean vibrational frequencies can be used to 
+calculate the 
+temperature at which the solid-solid transition between these two 
+geometries caused by the migration of the dopant atom will occur.
+
+
+/***********************************************************************
+Setting the files for ptmc and running ptmc
+/***********************************************************************
+As it is mentioned in the documentation the ptmc requires two or three 
+files. In this case three file should be provided because we are 
+interested in studying a binary cluster.
+The first, that we will call in.in, could look like:
+
+13 100 400000000 1000000 400000000 0.01852 0.7408 -82 0 0.05 3.015
+
+The above information should be in the FIRST line of the file.
+The meaning of the numbers is as follows (Notice that the order is VERY
+important):
+
+13: 		13 particles
+100:		Every 100 Monte Carlo steps attempt a replica exchange
+400000000:	The number of Monte Carlo steps
+1000000:	The frequency at which partial accumulated values should be 
+			saved to disk.
+400000000:	The number of equilibration steps.
+0.01852:	Lowest temperature to be simulated (in units of energy/
+			Boltzmann Constant).
+0.7408:		Highest temperature to be simulated.
+-82:		Minimum value to be used in the energy histogram.
+0:			Maximum value of the energy histogram.
+0.05:		Size of the bins in the energy histogram.
+3.015:		Radius of the spherical 'box' in which the cluster will be
+			constrained to move.
+			
+By Monte Carlo steps it is meant a single particle move. Also 
+if there are doping atoms (This is specified by the macro
+NUMBER_OF_DOPANTS) two atoms will be taken at random and if they are of
+different types and exchange between them will also be attempted.
+			
+The second file, that we will call names.in,
+ should contain the names of the initial configuration
+files for each replica, in this case all the replicas will start with 
+the same file, KrXe12B.xyz, thus the name of this file should appear
+in the first n_replicas lines of names.in .
+
+Finally, the third file, that we will call rdfs.in
+ will give information about how the Radial Distributions functions
+should be calculated. Notice that the RDFs will be calculated from the
+geometric center of the cluster.
+
+The file should look like:
+
+1000 0 6 0.005
+
+The meaning of the number is as follows:
+
+1000:		Every 1000 Monte Carlo steps the RDFs will be updated.
+0:			The minimum value of the RDFs histogram.
+6:			The maximum value of the RDFs histogram.
+0.005:		Size of the RDFs histograms.
+
+Finally the file ptmc.h should be edited to indicate that we want to
+exchange atoms and that we want to calculate RDFs thus the following
+macros are defined:
+
+#define CALCULATE_RDF 1
+#define NUMBER_OF_DOPANTS 1
+
+The first one, because is nonzero, will tell the program to calculate
+the RDFS
+The second one will tell the program that the first NUMBER_OF_DOPANTS
+atoms are different from the rest and thus their RDF should be 
+recorded apart from the RDFs of the other atoms and also that it should
+attempt to swap dopant and non dopant atoms.
+
+To compile the program type:
+
+make ptmc.out
+
+To run the program simply type:
+
+mpirun -np nprocs ptmc.out in.in names.in rdfs.in
+
+The program will run. Using the parameters given it should on the order 
+of one day to complete the calculations.
+
+Notice that of the nprocs processes nprocs-1 will be used as replicas
+and the first processes will be used as the master node. The 
+temperatures of the nodes will be given in a geometric progression.
+The above also implies that there should be  nprocs-1 lines in the 
+file names.in for the nprocs-1 'slave' replicas.
+
+At the end of the execution the program will return to the standard 
+output the seed that was used by the program to initiallize the 
+random walk and a number of files described in the documentation of
+ptmc will also have been created.
+
+/***********************************************************************
+Processing the files
+/***********************************************************************
+
+Finally to process those files compile ptmc_data:
+
+make ptmc_data.out
+
+and run it passing the firs and last argument passed to ptmc:
+
+./ptmc_data.out in.in rdfs.in
+
+A number of files will be generated the content of those files is 
+explained in the documentation of ptmc_data.
+[Added4Aug11] The first of them, data.dat will contain the main 
+observables for each replica, in particular column 1 contains the
+replica number, column 2 contains
+the temperature, column 3 the internal energy, column 4 the C_v
+and column the acceptance ratio of swaps between replica i and i+1.
+The internal energy and cv are plotted as a function of the temperature
+in figure u-cv.eps. The interpolation between the data points is done
+using csplines. Notice that much more "physical" interpolations can be
+done using more elaborate methods such as the multihistogra method [5]
+. In  figure exc.eps the acceptance ratio between the replicas i and i+1
+ is plotted as a function of the temperature. It is seen to be anti
+ corralted with the C_v, i.e., when a phase change or solid solid
+ transition occurs the acceptance ratio of swaps decreases. This 
+ can be further confirmed in figure u-hist.eps in which the energy 
+ histograms of the replicas are plotted. Two of the are plotted in 
+ thicker lines. The first of them in solid thick lines is the one that
+ corresponds to the 18th replica with k_B T_{18}/\epsilon=0.15 and it
+ is the one corresponding to the low temperature peak. The second
+ thick dashed line corresponds to the 28th replica with 
+ k_B T_{28}/\epsilon=0.51 and it is seen that the histogram is almost
+ bimodal presenting a plateau in near the maximum. It is also seen that
+ as expected because of the low acceptance rate, the overlap
+ with the histograms next it is smaller than for the rest of the 
+ histograms.
+ In figure rms_dopant.eps the standard deviation of the position of the
+ dopant atom is plotted as a function of the temperatures, it is seen
+ that the first peak in the C_v corresponds to a significant increase
+ of the standard deviation of the position the Kr atom and that then
+ this quantity increases again when the cluster melts.
+ This behavior is also corroborated by examining the radial distribution
+ functions of the atom and the impurity which are presented in figure
+ rdfs.eps in which the radial distirbution function are plotted for
+ tempertures near zero, just before and just after the solid-solid 
+ transition and the melting of the cluster.
+ 
+
+
+[Added4Aug11] Finally also notice that using these files the simulation 
+can be restarted in the 
+point in which is was finished. To this end notice that the last 
+configuration of the i-th replica is in the las n lines of the file
+cos[i].dat (n being the number of atoms). Thus with this information
+new initial configuration files can be created and this can be used as
+the initial configuration files described in the file names.in
+
+
+
+
+
+
+
+
+
+
+
+[1] M. Galassi et. al. , GNU Scientific Library Reference Manual 
+	(3rd Ed.), http://www.gnu.org/software/gsl/manual/html_node/
+	
+[2] F. Calvo and E. Yurtsever, Phys. Rev. B 70, 045423 (2004).
+
+[3] D. Wales, J. Doye, A. Dullweber, M. Hodges, F. Naumkin, F. Calvo, 
+	J. Hernández-Rojas, and T. Middleton, The cambridge cluster database
+	, http://www-wales.ch.cam.ac.uk/CCD.html.
+	
+[4] Nicolas Quesada and Gloria E. Moyano Phys. Rev. B 82, 054104 (2010).
